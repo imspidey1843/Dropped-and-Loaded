@@ -15,25 +15,32 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(BlockBehaviour.class)
+@Mixin(BlockBehaviour.BlockStateBase.class)
 public class SculkGrowthPlacementMixin {
+    @SuppressWarnings("DataFlowIssue")
     @Inject(method = "onPlace", at = @At("TAIL"), remap = false)
     private void droppedAndLoaded$placeSculkGrowth(
-            BlockState state,
             Level level,
             BlockPos pos,
             BlockState oldState,
             boolean movedByPiston,
             CallbackInfo ci
     ) {
-        if (level.isClientSide || !state.is(Blocks.SCULK) || oldState.is(Blocks.SCULK))
+        BlockState placedState = (BlockState) (Object) this;
+        if (level.isClientSide || !placedState.is(Blocks.SCULK) || oldState.is(Blocks.SCULK))
             return;
 
         float roll = level.getRandom().nextFloat();
-        if (roll < 0.01f && droppedAndLoaded$tryPlaceOvergrownGrowths(level, pos))
+        if (roll < 0.1f && droppedAndLoaded$tryPlaceOvergrownGrowths(level, pos))
             return;
-        if (roll < 0.1f)
+        if (roll < 0.3f)
             droppedAndLoaded$tryPlaceSmallGrowths(level, pos);
+    }
+
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    @Unique
+    private boolean droppedAndLoaded$hasReplaceableSpace(Level level, BlockPos pos) {
+        return level.getBlockState(pos).canBeReplaced();
     }
 
     @SuppressWarnings("UnusedReturnValue")
@@ -41,11 +48,9 @@ public class SculkGrowthPlacementMixin {
     private boolean droppedAndLoaded$tryPlaceSmallGrowths(Level level, BlockPos pos) {
         BlockPos growthPos = pos.above();
         BlockState growth = DroppedAndLoadedModBlocks.SCULK_GROWTHS.get().defaultBlockState();
-        if (level.isEmptyBlock(growthPos) && growth.canSurvive(level, growthPos)) {
-            level.setBlock(growthPos, growth, Block.UPDATE_ALL);
-            return true;
-        }
-        return false;
+        if (!droppedAndLoaded$hasReplaceableSpace(level, pos) || !growth.canSurvive(level, growthPos))
+            return false;
+        return level.setBlock(growthPos, growth, Block.UPDATE_ALL);
     }
 
     @Unique
@@ -54,13 +59,12 @@ public class SculkGrowthPlacementMixin {
         BlockState growth = DroppedAndLoadedModBlocks.OVERGROWN_SCULK_GROWTHS.get().defaultBlockState();
         BlockState lower = growth.setValue(DoublePlantBlock.HALF, DoubleBlockHalf.LOWER);
         if (
-                level.isEmptyBlock(growthPos) &&
-                level.isEmptyBlock(growthPos.above()) &&
-                lower.canSurvive(level, growthPos)
-        ) {
-            DoublePlantBlock.placeAt(level, growth, growthPos, Block.UPDATE_ALL);
-            return true;
-        }
-        return false;
+                !droppedAndLoaded$hasReplaceableSpace(level, growthPos) ||
+                !droppedAndLoaded$hasReplaceableSpace(level, growthPos.above()) ||
+                !lower.canSurvive(level, growthPos)
+        )
+            return false;
+        DoublePlantBlock.placeAt(level, growth, growthPos, Block.UPDATE_ALL);
+        return level.getBlockState(growthPos).is(growth.getBlock());
     }
 }
