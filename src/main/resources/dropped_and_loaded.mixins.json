@@ -2,7 +2,6 @@
   "required": true,
   "package": "net.imspidey.dropped_and_loaded.mixin",
   "compatibilityLevel": "JAVA_21",
-  "refmap": "mixin.refmap.json",
   "mixins": [
     "SculkGrowthPlacementMixin"
   ],

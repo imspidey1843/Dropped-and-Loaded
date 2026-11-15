@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BlockBehaviour.class)
 public class SculkGrowthPlacementMixin {
-    @Inject(method = "onPlace", at = @At("TAIL"))
+    @Inject(method = "onPlace", at = @At("TAIL"), remap = false)
     private void droppedAndLoaded$placeSculkGrowth(
             BlockState state,
             Level level,
