@@ -8,6 +8,16 @@ base.archivesName = "modid"
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+repositories {
+    maven {
+        url = 'https://repo.spongepowered.org/repository/maven-public/'
+    }
+}
+
+dependencies {
+    annotationProcessor 'org.spongepowered:mixin:0.8.7:processor'
+}
+
 neoForge {
     version = "21.1.232"
 
@@ -41,6 +51,10 @@ neoForge {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+
+    options.compilerArgs += [
+            "-AoutRefMapFile=${layout.buildDirectory.file('resources/main/mixin.refmap.json').get().asFile}"
+    ]
 }
 
 apply from: 'mcreator.gradle'
