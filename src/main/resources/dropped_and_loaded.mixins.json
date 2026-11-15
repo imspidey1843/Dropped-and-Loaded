@@ -2,7 +2,9 @@
   "required": true,
   "package": "net.imspidey.dropped_and_loaded.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [],
+  "mixins": [
+    "SculkGrowthPlacementMixin"
+  ],
   "client": [],
   "injectors": {
     "defaultRequire": 1
