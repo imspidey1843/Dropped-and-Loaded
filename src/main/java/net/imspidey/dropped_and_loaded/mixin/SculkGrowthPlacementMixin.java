@@ -1,3 +1,4 @@
+
 package net.imspidey.dropped_and_loaded.mixin;
 
 import net.imspidey.dropped_and_loaded.init.DroppedAndLoadedModBlocks;
@@ -12,49 +13,61 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(SculkVeinBlock.class)
+@Mixin(SculkSpreader.ChargeCursor.class)
 public class SculkGrowthPlacementMixin {
+    @Unique
+    private BlockPos droppedAndLoaded$spreadPos;
+
     @Unique
     private int droppedAndLoaded$existingSculkMask;
 
-    @Inject(method = "attemptPlaceSculk", at = @At("HEAD"), remap = false)
-    private void droppedAndLoaded$captureNeighbors(
-            SculkSpreader spreader,
+    @Inject(method = "update", at = @At("HEAD"), remap = false)
+    private void droppedAndLoaded$captureSpread(
             LevelAccessor level,
-            BlockPos pos,
+            BlockPos catalystPos,
             RandomSource random,
-            CallbackInfoReturnable<Boolean> cir
+            SculkSpreader spreader,
+            boolean shouldConvertToBlock,
+            CallbackInfo ci
     ) {
+        droppedAndLoaded$spreadPos = ((SculkSpreader.ChargeCursor) (Object) this).getPos();
         droppedAndLoaded$existingSculkMask = 0;
         for (Direction direction : Direction.values())
-            if (level.getBlockState(pos.relative(direction)).is(Blocks.SCULK))
+            if (level.getBlockState(droppedAndLoaded$spreadPos.relative(direction)).is(Blocks.SCULK))
                 droppedAndLoaded$existingSculkMask |= 1 << direction.ordinal();
     }
 
-    @Inject(method = "attemptPlaceSculk", at = @At("RETURN"), remap = false)
+    @Inject(method = "update", at = @At("TAIL"), remap = false)
     private void droppedAndLoaded$placeSculkGrowth(
-            SculkSpreader spreader,
             LevelAccessor level,
-            BlockPos pos,
+            BlockPos catalystPos,
             RandomSource random,
-            CallbackInfoReturnable<Boolean> cir
+            SculkSpreader spreader,
+            boolean shouldConvertToBlock,
+            CallbackInfo ci
     ) {
-        if (spreader.isWorldGeneration() || !Boolean.TRUE.equals(cir.getReturnValue()))
+        if (
+                spreader.isWorldGeneration() ||
+                !shouldConvertToBlock ||
+                droppedAndLoaded$spreadPos == null
+        )
             return;
+
         for (Direction direction : Direction.values()) {
             if ((droppedAndLoaded$existingSculkMask & (1 << direction.ordinal())) != 0)
                 continue;
-            BlockPos sculkPos = pos.relative(direction);
+
+            BlockPos sculkPos = droppedAndLoaded$spreadPos.relative(direction);
             if (!level.getBlockState(sculkPos).is(Blocks.SCULK))
                 continue;
+
             float roll = random.nextFloat();
-            if (roll < 0.10F && droppedAndLoaded$tryPlaceOvergrownGrowths(level, sculkPos))
-                return;
-            if (roll < 0.30F)
+            if (roll < 0.1f && droppedAndLoaded$tryPlaceOvergrownGrowths(level, sculkPos))
+                continue;
+            if (roll < 0.3f)
                 droppedAndLoaded$tryPlaceSmallGrowths(level, sculkPos);
-            return;
         }
     }
 
@@ -67,7 +80,6 @@ public class SculkGrowthPlacementMixin {
     @SuppressWarnings("UnusedReturnValue")
     @Unique
     private boolean droppedAndLoaded$tryPlaceSmallGrowths(LevelAccessor level, BlockPos pos) {
-        System.out.println("SPREAD SMALL");
         BlockPos growthPos = pos.above();
         BlockState growth = DroppedAndLoadedModBlocks.SCULK_GROWTHS.get().defaultBlockState();
         if (!droppedAndLoaded$hasReplaceableSpace(level, growthPos) || !growth.canSurvive(level, growthPos))
@@ -77,7 +89,6 @@ public class SculkGrowthPlacementMixin {
 
     @Unique
     private boolean droppedAndLoaded$tryPlaceOvergrownGrowths(LevelAccessor level, BlockPos pos) {
-        System.out.println("SPREAD LARGE");
         BlockPos growthPos = pos.above();
         BlockState growth = DroppedAndLoadedModBlocks.OVERGROWN_SCULK_GROWTHS.get().defaultBlockState();
         BlockState lower = growth.setValue(DoublePlantBlock.HALF, DoubleBlockHalf.LOWER);
